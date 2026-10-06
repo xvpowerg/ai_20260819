@@ -1,0 +1,41 @@
+sql = """
+WITH order_revenue AS (
+
+    -- 第一步：計算每張已完成訂單的營收
+    SELECT
+        o.order_id,                                  -- 訂單編號
+        o.customer_id,                               -- 客戶編號
+        SUM(
+            oi.quantity
+            * oi.unit_price
+            * (1 - oi.discount_rate)
+        ) AS revenue                                 -- 每張訂單的總營收
+
+    FROM orders AS o
+    INNER JOIN order_items AS oi
+        ON o.order_id = oi.order_id                  -- 訂單接商品明細
+
+    WHERE o.status = 'completed'                     -- 只計算已完成訂單
+
+    GROUP BY
+        o.order_id,
+        o.customer_id                                -- 一列整理成一張訂單
+)
+
+-- 第二步：再依客群做商業分析
+SELECT
+    c.segment,                                       -- 客群
+    COUNT(r.order_id) AS completed_orders,           -- 完成訂單數
+    ROUND(SUM(r.revenue), 2) AS total_revenue,       -- 客群總營收
+    ROUND(AVG(r.revenue), 2) AS aov                  -- 平均每張訂單金額
+FROM order_revenue AS r
+INNER JOIN customers AS c
+    ON r.customer_id = c.customer_id                 -- 接上客群資料
+GROUP BY c.segment                                   -- 依客群分組
+ORDER BY total_revenue DESC;                         -- 總營收高的排前面
+"""
+# 執行查詢
+segment_result = pd.read_sql_query(sql, conn)
+
+# 顯示客群營收分析結果
+segment_result
